@@ -69,6 +69,7 @@ test("audio+video+data 同時接続と独立した pause/close", async () => {
     }
     await audioWait;
     await videoWait;
+    // 検証: audio と video の RTP が同時に届き、video track は live のまま。
     assert.equal(videoConsumer.client.track.readyState, "live");
 
     const message = new Promise<string>((resolve) => {

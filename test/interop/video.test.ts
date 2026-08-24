@@ -33,6 +33,7 @@ async function produceVideo(mimeType: string) {
     const marker = Buffer.from("VID");
     const payload = markedPayload(mimeType, marker);
     const sendTrack = track as { writeRtp: (packet: unknown) => void };
+    // 実行: Consumer 待ちを先に張り、キーフレーム相当の synthetic RTP を流す。
     const waiter = waitForMarkedRtp(
       consumed.client.track as {
         onReceiveRtp: {
@@ -72,24 +73,33 @@ async function produceVideo(mimeType: string) {
 test("VP8 produce/consume で synthetic RTP が届く", async () => {
   const { consumed, packets, producer, session } = await produceVideo("video/VP8");
   try {
-    // 検証: VP8 Consumer の track に marker 付き RTP が届く。
+    // 検証: VP8 Consumer の track に marker 付き RTP が届き、seq/ts/ssrc/marker が変化する。
     assert.match(producer.rtpParameters.codecs[0].mimeType, /VP8/i);
     assert.equal(consumed.client.track.readyState, "live");
     assert.ok(packets.length >= 2);
     assert.ok(packets[1].sequenceNumber !== packets[0].sequenceNumber);
     assert.ok(packets[1].timestamp !== packets[0].timestamp);
     assert.equal(packets[0].ssrc, packets[1].ssrc);
-    assert.ok(packets[0].payload.indexOf(Buffer.from("WERIFT-video/VP8")) !== -1);
+    assert.equal(typeof packets[0].marker, "boolean");
+    assert.ok(packets.some((packet) => packet.marker === true));
+    assert.ok(packets[0].payload.indexOf(Buffer.from("VID")) !== -1);
   } finally {
     await session.close();
   }
 });
 
 test("H264 produce/consume で synthetic RTP が届く", async () => {
-  const { packets, producer, session } = await produceVideo("video/H264");
+  const { consumed, packets, producer, session } = await produceVideo("video/H264");
   try {
+    // 検証: H264 でも payload marker 付き RTP が Router を往復し、seq/ts/ssrc/marker を保持する。
     assert.match(producer.rtpParameters.codecs[0].mimeType, /H264/i);
+    assert.equal(consumed.client.track.readyState, "live");
     assert.ok(packets.length >= 2);
+    assert.ok(packets[1].sequenceNumber !== packets[0].sequenceNumber);
+    assert.ok(packets[1].timestamp !== packets[0].timestamp);
+    assert.equal(packets[0].ssrc, packets[1].ssrc);
+    assert.equal(typeof packets[0].marker, "boolean");
+    assert.ok(packets.some((packet) => packet.marker === true));
     assert.ok(packets[0].payload.indexOf(Buffer.from("VID")) !== -1);
   } finally {
     await session.close();

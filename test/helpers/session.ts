@@ -6,6 +6,7 @@ import { ResourceBag } from "./cleanup.js";
 import { arrangeInstalledPolyfill } from "./polyfill.js";
 import {
   waitForClientConnected,
+  waitForOpen,
   wireConnect,
   wireProduce,
   wireProduceData,
@@ -97,6 +98,24 @@ export class InteropSession {
       await serverConsumer.resume();
     }
     return { client: clientConsumer, server: serverConsumer };
+  }
+
+  async createLinkedDataPair(options: {
+    label?: string;
+    protocol?: string;
+    ordered?: boolean;
+    maxRetransmits?: number;
+    maxPacketLifeTime?: number;
+  }) {
+    const send = await this.createLinkedSendTransport();
+    const recv = await this.createLinkedRecvTransport();
+    const producer = await send.client.produceData(options);
+    await this.waitConnected(send.client);
+    const consumed = await this.consumeDataProducer(recv, producer.id);
+    await this.waitConnected(recv.client);
+    await waitForOpen(producer);
+    await waitForOpen(consumed.client);
+    return { consumed, producer, recv, send };
   }
 
   async consumeDataProducer(

@@ -50,6 +50,73 @@ export function wireProduceData(
   );
 }
 
+export function waitForMessage(
+  consumer: { on: (event: "message", listener: (data: unknown) => void) => unknown },
+  timeoutMs = 15_000,
+) {
+  return new Promise<string>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("timed out waiting for data channel message"));
+    }, timeoutMs);
+    consumer.on("message", (data) => {
+      clearTimeout(timer);
+      resolve(String(data));
+    });
+  });
+}
+
+function isClosed(emitter: { closed?: boolean; readyState?: string }) {
+  return emitter.closed === true || emitter.readyState === "closed";
+}
+
+export function waitForClose(
+  emitter: {
+    closed?: boolean;
+    readyState?: string;
+    on: (event: any, listener: any) => unknown;
+    off?: (event: any, listener: any) => unknown;
+  },
+  timeoutMs = 15_000,
+) {
+  if (isClosed(emitter)) {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      clearInterval(poll);
+      emitter.off?.("close", onClose);
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      if (isClosed(emitter)) {
+        finish();
+        return;
+      }
+      finish(
+        new Error(`timed out waiting for close (state=${emitter.readyState})`),
+      );
+    }, timeoutMs);
+    const onClose = () => finish();
+    const poll = setInterval(() => {
+      if (isClosed(emitter)) {
+        finish();
+      }
+    }, 20);
+    emitter.on("close", onClose);
+  });
+}
+
 export function waitForOpen(
   emitter: {
     readyState?: string;
