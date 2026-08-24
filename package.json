@@ -20,5 +20,9 @@
     "@types/node": "24.13.3",
     "tsx": "4.23.12",
     "typescript": "5.9.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "mediasoup@3.26.0": true
   }
 }
