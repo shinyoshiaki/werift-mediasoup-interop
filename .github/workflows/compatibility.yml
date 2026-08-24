@@ -1,0 +1,37 @@
+name: Compatibility probe
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
+
+jobs:
+  latest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout werift source
+        uses: actions/checkout@v4
+        with:
+          repository: shinyoshiaki/werift-webrtc
+          path: werift-webrtc
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Probe latest mediasoup packages
+        env:
+          WERIFT_REPO_ROOT: ${{ github.workspace }}/werift-webrtc
+        run: |
+          set +e
+          npm ci
+          npm install --save mediasoup@latest mediasoup-client@latest
+          npm run type
+          TYPE_STATUS=$?
+          npm test
+          TEST_STATUS=$?
+          if [ "$TYPE_STATUS" -ne 0 ] || [ "$TEST_STATUS" -ne 0 ]; then
+            echo "::warning::Latest mediasoup compatibility probe failed (type=$TYPE_STATUS test=$TEST_STATUS). Open a tracking ticket; do not fail werift required CI."
+            echo "Create a tracking ticket for mediasoup/mediasoup-client latest compatibility."
+            exit 0
+          fi
+          echo "Latest mediasoup compatibility probe passed."

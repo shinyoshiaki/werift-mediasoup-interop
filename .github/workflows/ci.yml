@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout werift source
+        uses: actions/checkout@v4
+        with:
+          repository: shinyoshiaki/werift-webrtc
+          path: werift-webrtc
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install and test pinned versions
+        env:
+          WERIFT_REPO_ROOT: ${{ github.workspace }}/werift-webrtc
+        run: |
+          npm ci
+          npm run type
+          npm test

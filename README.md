@@ -4,6 +4,9 @@
 werift の npm package や build output ではなく、親 checkout の
 `packages/webrtc/src/polyfill/index.ts` を `tsx` で直接 import します。
 
+`mediasoup-client` には `handlerName` / `handlerFactory` を渡しません。各 E2E は
+`installPolyfill({ mediaRegister, userAgent? })` を Arrange し、`finally` で uninstall します。
+
 ## Checkout layouts
 
 次の順で werift source root を解決します。
@@ -18,7 +21,10 @@ npm run type
 npm test
 ```
 
-## Planned interop matrix
+Pinned CI は Node 22 / 24 で `mediasoup@3.26.0` と `mediasoup-client@3.22.0` を使います。
+最新版 compatibility probe は定期ジョブで、失敗しても本体の必須 CI は壊しません。
+
+## Interop matrix
 
 相互接続テストは Arrange helper を `test/helpers` の単一責務ファイル群へ集約し、各ケースの
 Act / Assert には日本語コメントを付けます。実 server を起動するテストでは worker、transport、
@@ -37,4 +43,4 @@ producer、consumer、polyfill を `finally` で確実に close / uninstall し�
 
 OS camera/microphone や codec encode/decode 自体は対象外です。決定的な synthetic RTP source/sink を使い、
 シグナリングと実 mediasoup worker を通る protocol interoperability を対象にします。
-
+Native Windows は対象外です。listen port は OS に割り当てさせます。

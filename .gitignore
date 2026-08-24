@@ -2,4 +2,4 @@ node_modules/
 coverage/
 dist/
 *.log
-
+report.2*.json
