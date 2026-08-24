@@ -118,6 +118,26 @@ export class InteropSession {
     return { consumed, producer, recv, send };
   }
 
+  async createServerToClientData(
+    recv: { client: Transport; server: WebRtcTransport },
+    options?: { label?: string; protocol?: string },
+  ) {
+    if (!this.router) {
+      throw new Error("session is not started");
+    }
+    const direct = await this.router.createDirectTransport();
+    this.resources.add(() => direct.close());
+    const producer = await direct.produceData({
+      label: options?.label ?? "server",
+      protocol: options?.protocol ?? "",
+    });
+    this.resources.add(() => producer.close());
+    const consumed = await this.consumeDataProducer(recv, producer.id);
+    await this.waitConnected(recv.client);
+    await waitForOpen(consumed.client);
+    return { consumed, producer, transport: direct };
+  }
+
   async consumeDataProducer(
     recv: { client: Transport; server: WebRtcTransport },
     dataProducerId: string,
@@ -141,6 +161,7 @@ export class InteropSession {
   async restartIce(pair: { client: Transport; server: WebRtcTransport }) {
     const iceParameters = await pair.server.restartIce();
     await pair.client.restartIce({ iceParameters });
+    await this.waitConnected(pair.client);
   }
 
   async createPeerDevice() {

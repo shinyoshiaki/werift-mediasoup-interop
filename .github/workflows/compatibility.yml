@@ -24,13 +24,16 @@ jobs:
         run: |
           set +e
           npm ci
+          CI_STATUS=$?
           npm install --save mediasoup@latest mediasoup-client@latest
+          INSTALL_STATUS=$?
           npm run type
           TYPE_STATUS=$?
           npm test
           TEST_STATUS=$?
-          if [ "$TYPE_STATUS" -ne 0 ] || [ "$TEST_STATUS" -ne 0 ]; then
-            echo "::warning::Latest mediasoup compatibility probe failed (type=$TYPE_STATUS test=$TEST_STATUS). Open a tracking ticket; do not fail werift required CI."
+          echo "probe-status ci=$CI_STATUS install=$INSTALL_STATUS type=$TYPE_STATUS test=$TEST_STATUS"
+          if [ "$CI_STATUS" -ne 0 ] || [ "$INSTALL_STATUS" -ne 0 ] || [ "$TYPE_STATUS" -ne 0 ] || [ "$TEST_STATUS" -ne 0 ]; then
+            echo "::warning::Latest mediasoup compatibility probe failed (ci=$CI_STATUS install=$INSTALL_STATUS type=$TYPE_STATUS test=$TEST_STATUS). Open a tracking ticket; do not fail werift required CI."
             echo "Create a tracking ticket for mediasoup/mediasoup-client latest compatibility."
             exit 0
           fi

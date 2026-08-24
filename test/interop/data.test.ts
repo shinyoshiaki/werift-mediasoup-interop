@@ -12,41 +12,41 @@ test("reliable ordered DataProducer/DataConsumer の双方向 message", async ()
       protocol: "werift",
       ordered: true,
     });
-    const reverse = await session.createLinkedDataPair({
-      label: "control-back",
+    const fromServer = await session.createServerToClientData(forward.recv, {
+      label: "from-server",
       protocol: "werift",
-      ordered: true,
     });
 
-    // 実行: 双方向にメッセージを送り、到着後に close する。
+    // 実行: client→client と server→client の双方へ送り、到着後に close する。
     const forwardReceived = waitForMessage(forward.consumed.client);
-    const reverseReceived = waitForMessage(reverse.consumed.client);
+    const serverReceived = waitForMessage(fromServer.consumed.client);
     forward.producer.send("hello-data");
-    reverse.producer.send("ack-data");
+    fromServer.producer.send("from-server");
     assert.equal(await forwardReceived, "hello-data");
-    assert.equal(await reverseReceived, "ack-data");
+    assert.equal(await serverReceived, "from-server");
 
     const closedForwardProducer = waitForClose(forward.producer);
     const closedForwardConsumer = waitForClose(forward.consumed.client);
-    const closedReverseProducer = waitForClose(reverse.producer);
-    const closedReverseConsumer = waitForClose(reverse.consumed.client);
+    const closedServerProducer = waitForClose(fromServer.producer);
+    const closedServerConsumer = waitForClose(fromServer.consumed.client);
     forward.producer.close();
-    reverse.producer.close();
+    fromServer.producer.close();
     forward.consumed.client.close();
-    reverse.consumed.client.close();
+    fromServer.consumed.client.close();
     await closedForwardProducer;
     await closedForwardConsumer;
-    await closedReverseProducer;
-    await closedReverseConsumer;
+    await closedServerProducer;
+    await closedServerConsumer;
 
-    // 検証: label/protocol・双方向 payload・close まで完了する。
+    // 検証: label/protocol・client/server 双方向 payload・close まで完了する。
     assert.equal(forward.producer.label, "control");
     assert.equal(forward.producer.protocol, "werift");
-    assert.equal(reverse.producer.label, "control-back");
+    assert.equal(fromServer.producer.label, "from-server");
+    assert.equal(fromServer.consumed.client.label, "from-server");
     assert.equal(forward.producer.closed, true);
-    assert.equal(reverse.producer.closed, true);
+    assert.equal(fromServer.producer.closed, true);
     assert.equal(forward.consumed.client.closed, true);
-    assert.equal(reverse.consumed.client.closed, true);
+    assert.equal(fromServer.consumed.client.closed, true);
   } finally {
     await session.close();
   }

@@ -145,6 +145,50 @@ export function waitForOpen(
   });
 }
 
+export async function waitUntil(
+  predicate: () => boolean,
+  timeoutMs = 15_000,
+  message = "timed out waiting for condition",
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(message);
+}
+
+export function waitForClientConnectionState(
+  transport: Transport,
+  states: string[],
+  timeoutMs = 15_000,
+) {
+  if (states.includes(transport.connectionState)) {
+    return Promise.resolve(transport.connectionState);
+  }
+
+  return new Promise<string>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      transport.removeListener("connectionstatechange", onChange);
+      reject(
+        new Error(
+          `timed out waiting for ${states.join("|")} (state=${transport.connectionState})`,
+        ),
+      );
+    }, timeoutMs);
+    const onChange = () => {
+      if (states.includes(transport.connectionState)) {
+        clearTimeout(timer);
+        transport.removeListener("connectionstatechange", onChange);
+        resolve(transport.connectionState);
+      }
+    };
+    transport.on("connectionstatechange", onChange);
+  });
+}
+
 export function waitForClientConnected(
   transport: Transport,
   timeoutMs = 15_000,

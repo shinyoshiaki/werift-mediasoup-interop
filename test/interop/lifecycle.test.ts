@@ -3,14 +3,41 @@ import test from "node:test";
 
 import { arrangeInstalledPolyfill } from "../helpers/polyfill.js";
 import { arrangeInteropSession } from "../helpers/session.js";
+import { waitForClientConnectionState } from "../helpers/signaling.js";
 import { arrangeWorkerRouter } from "../helpers/worker.js";
 
 test("失敗後の再作成と worker 終了で open handle を残さない", async () => {
   const first = await arrangeInteropSession();
   const previousUa = navigator.userAgent;
-  await first.close();
+  try {
+    const send = await first.createLinkedSendTransport();
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    await send.client.produce({ track: stream.getAudioTracks()[0] });
+    await first.waitConnected(send.client);
 
-  // 実行: uninstall 後に新しい worker/session を作り直す。
+    // 実行: 接続済み worker を終了させ、client 側の失敗を待つ。
+    const worker = first.worker!;
+    const died = new Promise<void>((resolve) => {
+      worker.on("died", () => resolve());
+      worker.on("subprocessclose", () => resolve());
+    });
+    worker.close();
+    await died;
+    await waitForClientConnectionState(send.client, [
+      "disconnected",
+      "failed",
+      "closed",
+    ]);
+    assert.equal(worker.closed || worker.died, true);
+  } finally {
+    try {
+      await first.close();
+    } catch {
+      // worker 異常終了後の close 失敗は再作成の対象として無視する。
+    }
+  }
+
+  // 実行: 失敗後に新しい worker/session を作り直す。
   const second = await arrangeInteropSession();
   try {
     assert.equal(second.device?.loaded, true);

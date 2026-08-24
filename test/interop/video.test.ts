@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   delay,
   markedPayload,
+  pumpMarkedRtp,
   sendMarkedRtp,
   waitForMarkedRtp,
 } from "../helpers/rtp.js";
@@ -123,15 +124,84 @@ test("simulcast・preferred layer・key-frame request・replaceTrack", async () 
     await session.waitConnected(send.client);
     const consumed = await session.consumeProducer(recv, producer.id);
     await session.waitConnected(recv.client);
+    const encodings = producer.rtpParameters.encodings ?? [];
+    assert.equal(encodings.length, 3);
+    assert.deepEqual(
+      encodings.map((encoding) => encoding.rid),
+      ["r0", "r1", "r2"],
+    );
+    // Chrome111 は encodings>1 を SDP SSRC とマージせず rid だけ付ける。
+    // werift sender は writeRtp 時に自身の SSRC へ上書きするので、既知 SSRC で十分。
+    const ssrc =
+      encodings
+        .map((encoding) => encoding.ssrc)
+        .find((value): value is number => typeof value === "number") ?? 2;
+    const consumeTrack = consumed.client.track as {
+      readyState: string;
+      onReceiveRtp: {
+        subscribe: (listener: (rtp: {
+          header: {
+            sequenceNumber: number;
+            timestamp: number;
+            ssrc: number;
+            marker: boolean;
+          };
+          payload: Buffer;
+        }) => void) => { unSubscribe: () => void };
+      };
+    };
+    await delay(200);
 
-    // 実行: layer 選択、キーフレーム要求、track 差し替え。
-    await consumed.server.setPreferredLayers({ spatialLayer: 0, temporalLayer: 0 });
+    const layerMarker = Buffer.from("LAYER");
+    const sendTrack = stream.getVideoTracks()[0] as {
+      writeRtp: (packet: unknown) => void;
+    };
+    // 実行: 先に RID 付き RTP を流して layer を登録し、その後 layer 選択とキーフレーム要求する。
+    const layerWait = waitForMarkedRtp(consumeTrack, layerMarker, 2);
+    await pumpMarkedRtp({
+      track: sendTrack,
+      sequenceNumber: 3000,
+      ssrc,
+      count: 12,
+      payload: markedPayload("video/VP8", layerMarker),
+    });
+    await consumed.server.setPreferredLayers({
+      spatialLayer: 0,
+      temporalLayer: 0,
+    });
     await consumed.server.requestKeyFrame();
+    await pumpMarkedRtp({
+      track: sendTrack,
+      sequenceNumber: 3200,
+      ssrc,
+      count: 12,
+      payload: markedPayload("video/VP8", layerMarker),
+    });
+    const layerPackets = await layerWait;
+
     const replacement = await navigator.mediaDevices.getUserMedia({ video: true });
     await producer.replaceTrack({ track: replacement.getVideoTracks()[0] });
+    const replaceMarker = Buffer.from("REPL");
+    const replaceWait = waitForMarkedRtp(consumeTrack, replaceMarker, 2);
+    await pumpMarkedRtp({
+      track: replacement.getVideoTracks()[0] as {
+        writeRtp: (packet: unknown) => void;
+      },
+      sequenceNumber: 4000,
+      ssrc,
+      count: 12,
+      payload: markedPayload("video/VP8", replaceMarker),
+    });
+    const replacePackets = await replaceWait;
 
-    // 検証: simulcast encodings があり、Consumer は live のまま。
-    assert.ok((producer.rtpParameters.encodings?.length ?? 0) >= 1);
+    // 検証: 3 encoding があり、layer 選択と replaceTrack 後も RTP が届く。
+    assert.ok(layerPackets.length >= 2);
+    assert.ok(layerPackets[1].sequenceNumber !== layerPackets[0].sequenceNumber);
+    assert.equal(layerPackets[0].ssrc, layerPackets[1].ssrc);
+    assert.ok(replacePackets.length >= 2);
+    assert.ok(replacePackets[1].sequenceNumber !== replacePackets[0].sequenceNumber);
+    assert.equal(replacePackets[0].ssrc, replacePackets[1].ssrc);
+    assert.ok(replacePackets[0].payload.indexOf(replaceMarker) !== -1);
     assert.equal(consumed.client.track.readyState, "live");
   } finally {
     await session.close();

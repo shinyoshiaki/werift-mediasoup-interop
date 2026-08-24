@@ -39,6 +39,28 @@ export function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export async function pumpMarkedRtp(options: {
+  track: { writeRtp: (packet: unknown) => void };
+  sequenceNumber?: number;
+  timestampStep?: number;
+  ssrc: number;
+  payload: Buffer;
+  count?: number;
+}) {
+  const count = options.count ?? 12;
+  for (let index = 0; index < count; index++) {
+    await sendMarkedRtp({
+      track: options.track,
+      sequenceNumber: (options.sequenceNumber ?? 1) + index,
+      timestamp: (options.timestampStep ?? 3000) * index,
+      ssrc: options.ssrc,
+      marker: index % 2 === 1,
+      payload: options.payload,
+    });
+    await delay(20);
+  }
+}
+
 export function markedPayload(mimeType: string, marker: Buffer) {
   if (/h264/i.test(mimeType)) {
     // mediasoup は NAL type 7 (SPS) をキーフレームとして転送開始する。
