@@ -17,9 +17,9 @@ async function loopMedia(kind: "audio" | "video", mimeType: string) {
     const producer = await send.client.produce({
       track,
     });
-    await session.waitConnected(send.client);
+    await session.waitConnected(send);
     const consumed = await session.consumeProducer(recv, producer.id);
-    await session.waitConnected(recv.client);
+    await session.waitConnected(recv);
 
     const marker = Buffer.from("WERIFT-OPUS");
     const ssrc = producer.rtpParameters.encodings?.[0]?.ssrc ?? 1;
@@ -75,9 +75,9 @@ test("audio pause/resume・replaceTrack・close が他を壊さない", async ()
     const producer = await send.client.produce({
       track: first.getAudioTracks()[0],
     });
-    await session.waitConnected(send.client);
+    await session.waitConnected(send);
     const consumed = await session.consumeProducer(recv, producer.id);
-    await session.waitConnected(recv.client);
+    await session.waitConnected(recv);
 
     // 実行: pause/resume、replaceTrack、close を順に行う。
     await producer.pause();

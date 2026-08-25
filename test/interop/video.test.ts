@@ -27,9 +27,9 @@ async function produceVideo(mimeType: string) {
       track,
       codec,
     });
-    await session.waitConnected(send.client);
+    await session.waitConnected(send);
     const consumed = await session.consumeProducer(recv, producer.id);
-    await session.waitConnected(recv.client);
+    await session.waitConnected(recv);
     await delay(200);
     const marker = Buffer.from("VID");
     const payload = markedPayload(mimeType, marker);
@@ -121,9 +121,9 @@ test("simulcast・preferred layer・key-frame request・replaceTrack", async () 
         { maxBitrate: 900_000 },
       ],
     });
-    await session.waitConnected(send.client);
+    await session.waitConnected(send);
     const consumed = await session.consumeProducer(recv, producer.id);
-    await session.waitConnected(recv.client);
+    await session.waitConnected(recv);
     const encodings = producer.rtpParameters.encodings ?? [];
     assert.equal(encodings.length, 3);
     assert.deepEqual(

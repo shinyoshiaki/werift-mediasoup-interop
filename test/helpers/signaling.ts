@@ -160,10 +160,22 @@ export async function waitUntil(
   throw new Error(message);
 }
 
+export function describeClientTransport(transport: Transport) {
+  return `client connectionState=${transport.connectionState} closed=${transport.closed}`;
+}
+
+export function describeServerTransport(server?: WebRtcTransport) {
+  if (!server) {
+    return "server=(none)";
+  }
+  return `server closed=${server.closed} ice=${server.iceState} dtls=${server.dtlsState} sctp=${server.sctpState ?? "-"}`;
+}
+
 export function waitForClientConnectionState(
   transport: Transport,
   states: string[],
   timeoutMs = 15_000,
+  server?: WebRtcTransport,
 ) {
   if (states.includes(transport.connectionState)) {
     return Promise.resolve(transport.connectionState);
@@ -174,7 +186,7 @@ export function waitForClientConnectionState(
       transport.removeListener("connectionstatechange", onChange);
       reject(
         new Error(
-          `timed out waiting for ${states.join("|")} (state=${transport.connectionState})`,
+          `timed out waiting for ${states.join("|")} (${describeClientTransport(transport)} ${describeServerTransport(server)})`,
         ),
       );
     }, timeoutMs);
@@ -192,6 +204,7 @@ export function waitForClientConnectionState(
 export function waitForClientConnected(
   transport: Transport,
   timeoutMs = 15_000,
+  server?: WebRtcTransport,
 ) {
   if (transport.connectionState === "connected") {
     return Promise.resolve();
@@ -202,7 +215,7 @@ export function waitForClientConnected(
       transport.removeListener("connectionstatechange", onChange);
       reject(
         new Error(
-          `timed out waiting for connected (state=${transport.connectionState})`,
+          `timed out waiting for connected (${describeClientTransport(transport)} ${describeServerTransport(server)})`,
         ),
       );
     }, timeoutMs);
@@ -215,7 +228,11 @@ export function waitForClientConnected(
       if (transport.connectionState === "failed") {
         clearTimeout(timer);
         transport.removeListener("connectionstatechange", onChange);
-        reject(new Error("transport connection failed"));
+        reject(
+          new Error(
+            `transport connection failed (${describeClientTransport(transport)} ${describeServerTransport(server)})`,
+          ),
+        );
       }
     };
     transport.on("connectionstatechange", onChange);

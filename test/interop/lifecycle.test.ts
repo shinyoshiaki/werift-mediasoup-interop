@@ -13,7 +13,7 @@ test("失敗後の再作成と worker 終了で open handle を残さない", as
     const send = await first.createLinkedSendTransport();
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     await send.client.produce({ track: stream.getAudioTracks()[0] });
-    await first.waitConnected(send.client);
+    await first.waitConnected(send);
 
     // 実行: 接続済み worker を終了させ、client 側の失敗を待つ。
     const worker = first.worker!;
@@ -29,6 +29,7 @@ test("失敗後の再作成と worker 終了で open handle を残さない", as
         send.client,
         ["disconnected", "failed", "closed"],
         5_000,
+        send.server,
       );
     } catch {
       // DTLS close_notify は UDP のため届かないことがある。worker 終了を失敗条件とする。
@@ -49,7 +50,7 @@ test("失敗後の再作成と worker 終了で open handle を残さない", as
     const send = await second.createLinkedSendTransport();
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     await send.client.produce({ track: stream.getAudioTracks()[0] });
-    await second.waitConnected(send.client);
+    await second.waitConnected(send);
     send.client.close();
   } finally {
     await second.close();
@@ -74,7 +75,7 @@ test("client-first / server-first の終了順", async () => {
     const recv = await session.createLinkedRecvTransport();
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     await send.client.produce({ track: stream.getAudioTracks()[0] });
-    await session.waitConnected(send.client);
+    await session.waitConnected(send);
 
     // 実行: client を先に閉じ、別 transport は server を先に閉じる。
     send.client.close();

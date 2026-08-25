@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 
+import { acquireSharedRuntimeLock } from "./lock.js";
 import { arrangeWeriftSource } from "./weriftSource.js";
 import { resolveWeriftRoot } from "../../src/weriftSource.js";
 
@@ -16,7 +17,7 @@ export type WeriftPolyfillModule = {
   }) => unknown;
 };
 
-export async function arrangeInstalledPolyfill(options?: { userAgent?: string }) {
+export async function installPolyfillUnlocked(options?: { userAgent?: string }) {
   const { polyfill } = await arrangeWeriftSource();
   const module = polyfill as WeriftPolyfillModule;
   const MediaStreamTrack = await importWeriftMediaStreamTrack();
@@ -48,6 +49,26 @@ export async function arrangeInstalledPolyfill(options?: { userAgent?: string })
   });
 
   return { MediaStreamTrack, uninstall };
+}
+
+export async function arrangeInstalledPolyfill(options?: { userAgent?: string }) {
+  const release = await acquireSharedRuntimeLock();
+  try {
+    const installed = await installPolyfillUnlocked(options);
+    return {
+      MediaStreamTrack: installed.MediaStreamTrack,
+      uninstall() {
+        try {
+          installed.uninstall();
+        } finally {
+          release();
+        }
+      },
+    };
+  } catch (error) {
+    release();
+    throw error;
+  }
 }
 
 export async function importWeriftMediaStreamTrack() {

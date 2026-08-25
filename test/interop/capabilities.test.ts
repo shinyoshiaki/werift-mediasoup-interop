@@ -31,7 +31,7 @@ test("Router capabilities と未対応 codec / 不正 parameter の拒否", asyn
     const producer = await send.client.produce({
       track: stream.getAudioTracks()[0],
     });
-    await session.waitConnected(send.client);
+    await session.waitConnected(send);
 
     // 実行: 未対応 codec と壊した RTP/SCTP parameter を実 API へ渡す。
     const unsupportedProduce = send.client.produce({

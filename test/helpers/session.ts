@@ -3,7 +3,8 @@ import type { Device as MediasoupDevice, Transport } from "mediasoup-client/type
 import type { Router, WebRtcTransport, Worker } from "mediasoup/types";
 
 import { ResourceBag } from "./cleanup.js";
-import { arrangeInstalledPolyfill } from "./polyfill.js";
+import { acquireSharedRuntimeLock } from "./lock.js";
+import { installPolyfillUnlocked } from "./polyfill.js";
 import {
   waitForClientConnected,
   waitForOpen,
@@ -29,7 +30,7 @@ export class InteropSession {
       worker.close();
     });
 
-    const { uninstall } = await arrangeInstalledPolyfill(options);
+    const { uninstall } = await installPolyfillUnlocked(options);
     this.uninstall = uninstall;
     this.resources.add(() => uninstall());
 
@@ -70,8 +71,8 @@ export class InteropSession {
     return { client, server };
   }
 
-  async waitConnected(transport: Transport) {
-    await waitForClientConnected(transport);
+  async waitConnected(pair: { client: Transport; server: WebRtcTransport }) {
+    await waitForClientConnected(pair.client, 15_000, pair.server);
   }
 
   async consumeProducer(
@@ -110,9 +111,9 @@ export class InteropSession {
     const send = await this.createLinkedSendTransport();
     const recv = await this.createLinkedRecvTransport();
     const producer = await send.client.produceData(options);
-    await this.waitConnected(send.client);
+    await this.waitConnected(send);
     const consumed = await this.consumeDataProducer(recv, producer.id);
-    await this.waitConnected(recv.client);
+    await this.waitConnected(recv);
     await waitForOpen(producer);
     await waitForOpen(consumed.client);
     return { consumed, producer, recv, send };
@@ -133,7 +134,7 @@ export class InteropSession {
     });
     this.resources.add(() => producer.close());
     const consumed = await this.consumeDataProducer(recv, producer.id);
-    await this.waitConnected(recv.client);
+    await this.waitConnected(recv);
     await waitForOpen(consumed.client);
     return { consumed, producer, transport: direct };
   }
@@ -161,7 +162,7 @@ export class InteropSession {
   async restartIce(pair: { client: Transport; server: WebRtcTransport }) {
     const iceParameters = await pair.server.restartIce();
     await pair.client.restartIce({ iceParameters });
-    await this.waitConnected(pair.client);
+    await this.waitConnected(pair);
   }
 
   async createPeerDevice() {
@@ -202,7 +203,9 @@ export class InteropSession {
 }
 
 export async function arrangeInteropSession(options?: { userAgent?: string }) {
+  const release = await acquireSharedRuntimeLock();
   const session = new InteropSession();
+  session.resources.add(release);
   try {
     await session.start(options);
     return session;

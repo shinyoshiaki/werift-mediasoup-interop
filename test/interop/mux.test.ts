@@ -24,14 +24,14 @@ test("audio+video+data 同時接続と独立した pause/close", async () => {
       label: "mux",
       ordered: true,
     });
-    await session.waitConnected(send.client);
+    await session.waitConnected(send);
     const audioConsumer = await session.consumeProducer(recv, audioProducer.id);
     const videoConsumer = await session.consumeProducer(recv, videoProducer.id);
     const dataConsumer = await session.consumeDataProducer(
       recv,
       dataProducer.id,
     );
-    await session.waitConnected(recv.client);
+    await session.waitConnected(recv);
     await waitForOpen(dataProducer);
     await waitForOpen(dataConsumer.client);
     await delay(100);
@@ -100,13 +100,13 @@ test("複数 transport / client の独立した close", async () => {
     const producerA = await sendA.client.produce({
       track: audio.getAudioTracks()[0],
     });
-    await session.waitConnected(sendA.client);
+    await session.waitConnected(sendA);
     const producerB = await sendB.client.produce({
       track: (await navigator.mediaDevices.getUserMedia({ audio: true })).getAudioTracks()[0],
     });
-    await session.waitConnected(sendB.client);
+    await session.waitConnected(sendB);
     await session.consumeProducer(recvB, producerA.id, peer.rtpCapabilities);
-    await session.waitConnected(recvB.client);
+    await session.waitConnected(recvB);
 
     // 実行: A の transport を閉じても B は残る。
     sendA.client.close();

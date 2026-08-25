@@ -8,9 +8,9 @@
   },
   "scripts": {
     "type": "tsc --noEmit",
-    "test": "TSX_TSCONFIG_PATH=tsconfig.json tsx --test --test-concurrency=1 test/**/*.test.ts",
-    "test:source-import": "TSX_TSCONFIG_PATH=tsconfig.json tsx --test test/source-import.test.ts",
-    "test:interop": "TSX_TSCONFIG_PATH=tsconfig.json tsx --test --test-concurrency=1 test/interop/**/*.test.ts"
+    "test": "TSX_TSCONFIG_PATH=tsconfig.json tsx --test --test-concurrency=1 --test-isolation=process test/**/*.test.ts",
+    "test:source-import": "TSX_TSCONFIG_PATH=tsconfig.json tsx --test --test-isolation=process test/source-import.test.ts",
+    "test:interop": "TSX_TSCONFIG_PATH=tsconfig.json tsx --test --test-concurrency=1 --test-isolation=process test/interop/**/*.test.ts"
   },
   "dependencies": {
     "mediasoup": "3.26.0",
