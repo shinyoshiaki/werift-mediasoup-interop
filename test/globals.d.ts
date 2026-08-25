@@ -4,11 +4,18 @@ interface Navigator {
       audio?: boolean;
       video?: boolean;
     }): Promise<{
-      getAudioTracks(): Array<{ writeRtp: (rtp: unknown) => void }>;
-      getVideoTracks(): Array<{ writeRtp: (rtp: unknown) => void }>;
+      getAudioTracks(): MediaStreamTrack[];
+      getVideoTracks(): MediaStreamTrack[];
     }>;
   };
   userAgent: string;
+}
+
+interface MediaStreamTrack {
+  kind: string;
+  readyState: string;
+  writeRtp: (rtp: unknown) => void;
+  onReceiveRtp: unknown;
 }
 
 declare var navigator: Navigator;

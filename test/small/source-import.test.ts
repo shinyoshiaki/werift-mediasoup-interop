@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { arrangeWeriftSource } from "./helpers/weriftSource.js";
+import { arrangeWeriftSource } from "../helpers/weriftSource.js";
 
 test("werift の polyfill を TypeScript source から直接 import できる", async () => {
   // Arrange
@@ -16,4 +16,3 @@ test("werift の polyfill を TypeScript source から直接 import できる", 
   assert.equal(typeof installPolyfill, "function");
   assert.equal(typeof createCallbackRegister, "function");
 });
-

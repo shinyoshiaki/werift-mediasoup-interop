@@ -18,8 +18,11 @@ werift の npm package や build output ではなく、親 checkout の
 ```bash
 npm ci
 npm run type
+npm run test:small
 npm test
 ```
+
+`npm run test:small` は mediasoup worker を起動せず、`mediasoup-client` の Handler 自動選択と Device 制御フローだけを検証します。実 worker の ICE/DTLS/RTP/DataChannel は `npm test` または `npm run test:interop` です。
 
 Pinned CI は Node 22 / 24 で `mediasoup@3.26.0` と `mediasoup-client@3.22.0` を使います。
 最新版 compatibility probe は定期ジョブで、失敗しても本体の必須 CI は壊しません。
@@ -32,7 +35,8 @@ producer、consumer、polyfill を `finally` で確実に close / uninstall し�
 
 | Area | Cases |
 | --- | --- |
-| bootstrap | `detectDevice()` / `Device.factory()` の Handler 自動選択、明示 User-Agent、uninstall 復元 |
+| small | worker なしの `detectDevice()` / `Device.factory()` / `load()` / produce / consume / produceData |
+| bootstrap | 実 worker 上の Handler 自動選択、明示 User-Agent、uninstall 復元 |
 | capabilities | Router RTP capabilities、audio/video `canProduce()`、unsupported codec rejection |
 | transport | send/recv WebRtcTransport、ICE/DTLS connect、ICE restart、close/failure propagation |
 | audio | Opus produce/consume、pause/resume、replaceTrack、producer/consumer close、RTP/RTCP 往復 |
