@@ -30,3 +30,15 @@ export function clientTransportOptions(serverTransport: WebRtcTransport) {
     },
   };
 }
+
+export function browserClientTransportOptions(serverTransport: WebRtcTransport) {
+  const options = clientTransportOptions(serverTransport);
+  return {
+    id: options.id,
+    iceParameters: options.iceParameters,
+    iceCandidates: options.iceCandidates,
+    dtlsParameters: options.dtlsParameters,
+    sctpParameters: options.sctpParameters,
+    iceServers: options.iceServers,
+  };
+}

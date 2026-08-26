@@ -1,5 +1,6 @@
 node_modules/
 coverage/
 dist/
+test/browser/page/dist/
 *.log
 report.2*.json

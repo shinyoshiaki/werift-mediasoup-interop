@@ -12,6 +12,7 @@
     "target": "ES2023",
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "test/globals.d.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "test/globals.d.ts"],
+  "exclude": ["test/browser/page/**"]
 }
 

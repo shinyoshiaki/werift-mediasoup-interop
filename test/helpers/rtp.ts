@@ -73,6 +73,82 @@ export function markedPayload(mimeType: string, marker: Buffer) {
   return marker;
 }
 
+export function waitForRtpHeaders(
+  track: {
+    onReceiveRtp: {
+      subscribe: (
+        listener: (rtp: {
+          header: {
+            sequenceNumber: number;
+            timestamp: number;
+            ssrc: number;
+          };
+        }) => void,
+      ) => { unSubscribe: () => void };
+    };
+  },
+  count = 2,
+  timeoutMs = 15_000,
+) {
+  return new Promise<
+    Array<{ sequenceNumber: number; timestamp: number; ssrc: number }>
+  >((resolve, reject) => {
+    const received: Array<{
+      sequenceNumber: number;
+      timestamp: number;
+      ssrc: number;
+    }> = [];
+    const timer = setTimeout(() => {
+      unSubscribe();
+      reject(
+        new Error(
+          `timed out waiting for RTP progress (got ${received.length}, seq=${received.map((p) => p.sequenceNumber).join(",")}, ts=${received.map((p) => p.timestamp).join(",")})`,
+        ),
+      );
+    }, timeoutMs);
+    const { unSubscribe } = track.onReceiveRtp.subscribe((rtp) => {
+      received.push({
+        sequenceNumber: rtp.header.sequenceNumber,
+        timestamp: rtp.header.timestamp,
+        ssrc: rtp.header.ssrc,
+      });
+      if (received.length < count) {
+        return;
+      }
+      const seqChanged = received.some(
+        (packet) => packet.sequenceNumber !== received[0].sequenceNumber,
+      );
+      const tsChanged = received.some(
+        (packet) => packet.timestamp !== received[0].timestamp,
+      );
+      const ssrcs = new Set(received.map((packet) => packet.ssrc));
+      if (seqChanged && tsChanged && ssrcs.size === 1) {
+        clearTimeout(timer);
+        unSubscribe();
+        resolve(received);
+      }
+    });
+  });
+}
+
+export function assertRtpHeadersProgress(
+  packets: Array<{ sequenceNumber: number; timestamp: number; ssrc: number }>,
+) {
+  if (packets.length < 2) {
+    throw new Error(`expected at least 2 RTP packets, got ${packets.length}`);
+  }
+  if (!packets.some((packet) => packet.sequenceNumber !== packets[0].sequenceNumber)) {
+    throw new Error("RTP sequenceNumber did not change");
+  }
+  if (!packets.some((packet) => packet.timestamp !== packets[0].timestamp)) {
+    throw new Error("RTP timestamp did not change");
+  }
+  const ssrcs = new Set(packets.map((packet) => packet.ssrc));
+  if (ssrcs.size !== 1) {
+    throw new Error(`RTP SSRC was not stable: ${[...ssrcs].join(",")}`);
+  }
+}
+
 export function waitForMarkedRtp(
   track: {
     onReceiveRtp: {
