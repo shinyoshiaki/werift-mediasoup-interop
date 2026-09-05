@@ -26,7 +26,7 @@ npm test
 
 Playwright Chromium client と werift polyfill client が同じ Router を共有する試験は `npm run test:browser` です。`npm test` には含まれません。初回は `npm run install:browsers` で Chromium（または Playwright 同梱ブラウザ）を用意します。ブラウザページでは `installPolyfill` を呼ばず、fake media フラグ付きのネイティブ WebRTC を使います。ブラウザ→werift の到達は `onReceiveRtp` の seq/ts/ssrc、werift→ブラウザは inbound `packetsReceived` で検証し、payload marker は要求しません。
 
-Pinned CI は Node 22 / 24 で `mediasoup@3.26.0` と `mediasoup-client@3.22.0` を使い、`npm test` のあとに `install:browsers` と `test:browser` を実行します。
+Node 22 以上をサポートし、Pinned CI は Node 24 で `mediasoup@3.26.0` と `mediasoup-client@3.22.0` を使い、small / interop test のあとに `install:browsers` と `test:browser` を実行します。
 最新版 compatibility probe は定期ジョブで、失敗しても本体の必須 CI は壊しません。ブラウザ試験は compatibility probe の必須範囲ではありません。
 
 ## Interop matrix
@@ -46,7 +46,7 @@ producer、consumer、polyfill を `finally` で確実に close / uninstall し�
 | data | reliable/unreliable DataProducer/DataConsumer、ordered/unordered、label/protocol、bidirectional messages |
 | lifecycle | multiple transports/producers/consumers、server-first/client-first close、reconnect、open-handle check |
 | browser | Playwright Chromium ↔ werift。B1 Handler 検出、B2/B4 ブラウザ produce の RTP ヘッダ、B3/B5 werift produce の `packetsReceived`、B6 DataChannel 双方向、B7 同時接続、B8 close |
-| compatibility | Node 22/24、pinned versions、current mediasoup-client compatibility probe |
+| compatibility | Node 22 以上（CI は Node 24）、pinned versions、current mediasoup-client compatibility probe |
 
 OS camera/microphone や codec encode/decode 自体は対象外です。決定的な synthetic RTP source/sink を使い、
 シグナリングと実 mediasoup worker を通る protocol interoperability を対象にします。
