@@ -43,3 +43,12 @@ export async function importWeriftPolyfill(): Promise<Record<string, unknown>> {
   return import(entryUrl);
 }
 
+/** Import codec factories from the parent werift source checkout. */
+export async function importWeriftCodecs(): Promise<Record<string, unknown>> {
+  const weriftRoot = await resolveWeriftRoot();
+  const entryUrl = pathToFileURL(
+    path.join(weriftRoot, "packages/webrtc/src/media/codec.ts"),
+  ).href;
+
+  return import(entryUrl);
+}

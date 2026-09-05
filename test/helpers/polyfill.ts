@@ -3,7 +3,10 @@ import path from "node:path";
 
 import { acquireSharedRuntimeLock } from "./lock.js";
 import { arrangeWeriftSource } from "./weriftSource.js";
-import { resolveWeriftRoot } from "../../src/weriftSource.js";
+import {
+  importWeriftCodecs,
+  resolveWeriftRoot,
+} from "../../src/weriftSource.js";
 
 export type WeriftPolyfillModule = {
   installPolyfill: (options: {
@@ -49,6 +52,106 @@ export async function installPolyfillUnlocked(options?: { userAgent?: string }) 
   });
 
   return { MediaStreamTrack, uninstall };
+}
+
+type PeerConnectionConfig = {
+  codecs?: {
+    video?: unknown[];
+    [key: string]: unknown;
+  };
+  headerExtensions?: {
+    video?: unknown[];
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+type PeerConnectionConstructor = new (
+  config?: PeerConnectionConfig,
+) => object;
+
+/**
+ * Add H264 to the native capability probe used by mediasoup-client.
+ *
+ * The werift default PeerConnection intentionally advertises VP8 only until a
+ * sender track selects another codec. mediasoup-client probes an empty
+ * PeerConnection, so this fixture-local wrapper keeps H264 interop coverage
+ * without changing the public default codec list.
+ */
+export async function installInteropPeerConnection() {
+  const target = globalThis as unknown as {
+    RTCPeerConnection?: PeerConnectionConstructor;
+  };
+  const original = target.RTCPeerConnection;
+  if (!original) {
+    throw new Error("RTCPeerConnection is not installed");
+  }
+
+  const codecs = await importWeriftCodecs();
+  const useOPUS = codecs.useOPUS as () => unknown;
+  const usePCMU = codecs.usePCMU as () => unknown;
+  const useH264 = codecs.useH264 as () => unknown;
+  const useVP8 = codecs.useVP8 as () => unknown;
+  const rtpStreamIdUri = "urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id";
+
+  const isH264 = (codec: unknown) =>
+    typeof codec === "object" &&
+    codec !== null &&
+    "mimeType" in codec &&
+    typeof codec.mimeType === "string" &&
+    codec.mimeType.toLowerCase() === "video/h264";
+
+  class InteropPeerConnection extends original {
+    constructor(config: PeerConnectionConfig = {}) {
+      const configuredCodecs = config.codecs ?? {};
+      const configuredAudio = Array.isArray(configuredCodecs.audio)
+        ? [...configuredCodecs.audio]
+        : [useOPUS(), usePCMU()];
+      const configuredVideo = Array.isArray(configuredCodecs.video)
+        ? [...configuredCodecs.video]
+        : [useVP8()];
+      const video = configuredVideo.some(isH264)
+        ? configuredVideo
+        : [...configuredVideo, useH264()];
+      const configuredHeaderExtensions = config.headerExtensions ?? {};
+      const configuredVideoHeaderExtensions = Array.isArray(
+        configuredHeaderExtensions.video,
+      )
+        ? [...configuredHeaderExtensions.video]
+        : [];
+      if (
+        !configuredVideoHeaderExtensions.some(
+          (extension) =>
+            typeof extension === "object" &&
+            extension !== null &&
+            "uri" in extension &&
+            extension.uri === rtpStreamIdUri,
+        )
+      ) {
+        configuredVideoHeaderExtensions.push({ uri: rtpStreamIdUri });
+      }
+
+      super({
+        ...config,
+        codecs: {
+          ...configuredCodecs,
+          audio: configuredAudio,
+          video,
+        },
+        headerExtensions: {
+          ...configuredHeaderExtensions,
+          video: configuredVideoHeaderExtensions,
+        },
+      });
+    }
+  }
+
+  target.RTCPeerConnection = InteropPeerConnection;
+  return () => {
+    if (target.RTCPeerConnection === InteropPeerConnection) {
+      target.RTCPeerConnection = original;
+    }
+  };
 }
 
 export async function arrangeInstalledPolyfill(options?: { userAgent?: string }) {

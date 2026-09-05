@@ -4,7 +4,10 @@ import type { Router, WebRtcTransport, Worker } from "mediasoup/types";
 
 import { ResourceBag } from "./cleanup.js";
 import { acquireSharedRuntimeLock } from "./lock.js";
-import { installPolyfillUnlocked } from "./polyfill.js";
+import {
+  installInteropPeerConnection,
+  installPolyfillUnlocked,
+} from "./polyfill.js";
 import {
   waitForClientConnected,
   waitForOpen,
@@ -33,6 +36,8 @@ export class InteropSession {
     const { uninstall } = await installPolyfillUnlocked(options);
     this.uninstall = uninstall;
     this.resources.add(() => uninstall());
+    const restorePeerConnection = await installInteropPeerConnection();
+    this.resources.add(restorePeerConnection);
 
     this.device = await Device.factory();
     await this.device.load({ routerRtpCapabilities: router.rtpCapabilities });
