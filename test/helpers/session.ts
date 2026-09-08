@@ -84,13 +84,18 @@ export class InteropSession {
     recv: { client: Transport; server: WebRtcTransport },
     producerId: string,
     rtpCapabilities = this.device?.rtpCapabilities,
+    options?: { spatialLayer?: number },
   ) {
-    if (!this.device || !rtpCapabilities) {
+    const capabilities = rtpCapabilities ?? this.device?.rtpCapabilities;
+    if (!this.device || !capabilities) {
       throw new Error("session is not started");
     }
     const serverConsumer = await recv.server.consume({
       producerId,
-      rtpCapabilities,
+      rtpCapabilities: capabilities,
+      ...(typeof options?.spatialLayer === "number"
+        ? { spatialLayer: options.spatialLayer }
+        : {}),
     });
     this.resources.add(() => serverConsumer.close());
     const clientConsumer = await recv.client.consume({

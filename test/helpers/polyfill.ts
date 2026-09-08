@@ -63,6 +63,7 @@ type PeerConnectionConfig = {
     video?: unknown[];
     [key: string]: unknown;
   };
+  pendingRtp?: boolean | { enabled?: boolean; maxLength?: number };
   [key: string]: unknown;
 };
 
@@ -133,6 +134,7 @@ export async function installInteropPeerConnection() {
 
       super({
         ...config,
+        pendingRtp: config.pendingRtp ?? true,
         codecs: {
           ...configuredCodecs,
           audio: configuredAudio,

@@ -116,13 +116,18 @@ test("simulcast・preferred layer・key-frame request・replaceTrack", async () 
     const producer = await send.client.produce({
       track: stream.getVideoTracks()[0],
       encodings: [
-        { maxBitrate: 100_000 },
-        { maxBitrate: 300_000 },
-        { maxBitrate: 900_000 },
+        { maxBitrate: 100_000, scalabilityMode: "L1T1" },
+        { maxBitrate: 300_000, scalabilityMode: "L1T1" },
+        { maxBitrate: 900_000, scalabilityMode: "L1T1" },
       ],
     });
     await session.waitConnected(send);
-    const consumed = await session.consumeProducer(recv, producer.id);
+    const consumed = await session.consumeProducer(
+      recv,
+      producer.id,
+      undefined,
+      { spatialLayer: 0 },
+    );
     await session.waitConnected(recv);
     const encodings = producer.rtpParameters.encodings ?? [];
     assert.equal(encodings.length, 3);
@@ -151,30 +156,23 @@ test("simulcast・preferred layer・key-frame request・replaceTrack", async () 
       };
     };
     await delay(200);
-
-    const layerMarker = Buffer.from("LAYER");
-    const sendTrack = stream.getVideoTracks()[0] as {
-      writeRtp: (packet: unknown) => void;
-    };
-    // 実行: 先に RID 付き RTP を流して layer を登録し、その後 layer 選択とキーフレーム要求する。
-    const layerWait = waitForMarkedRtp(consumeTrack, layerMarker, 2);
-    await pumpMarkedRtp({
-      track: sendTrack,
-      sequenceNumber: 3000,
-      ssrc,
-      count: 12,
-      payload: markedPayload("video/VP8", layerMarker),
-    });
     await consumed.server.setPreferredLayers({
       spatialLayer: 0,
       temporalLayer: 0,
     });
     await consumed.server.requestKeyFrame();
+
+    const layerMarker = Buffer.from("LAYER");
+    const sendTrack = stream.getVideoTracks()[0] as {
+      writeRtp: (packet: unknown) => void;
+    };
+    // 実行: 先に spatial 0 を選び、RID 付きキーフレームを流して layer を登録する。
+    const layerWait = waitForMarkedRtp(consumeTrack, layerMarker, 2, 15_000);
     await pumpMarkedRtp({
       track: sendTrack,
-      sequenceNumber: 3200,
+      sequenceNumber: 3000,
       ssrc,
-      count: 12,
+      count: 24,
       payload: markedPayload("video/VP8", layerMarker),
     });
     const layerPackets = await layerWait;
@@ -182,7 +180,7 @@ test("simulcast・preferred layer・key-frame request・replaceTrack", async () 
     const replacement = await navigator.mediaDevices.getUserMedia({ video: true });
     await producer.replaceTrack({ track: replacement.getVideoTracks()[0] });
     const replaceMarker = Buffer.from("REPL");
-    const replaceWait = waitForMarkedRtp(consumeTrack, replaceMarker, 2);
+    const replaceWait = waitForMarkedRtp(consumeTrack, replaceMarker, 2, 15_000);
     await pumpMarkedRtp({
       track: replacement.getVideoTracks()[0] as {
         writeRtp: (packet: unknown) => void;

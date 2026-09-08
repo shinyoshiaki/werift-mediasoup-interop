@@ -188,7 +188,9 @@ export function waitForMarkedRtp(
     const timer = setTimeout(() => {
       unSubscribe();
       reject(
-        new Error(`timed out waiting for ${count} RTP packets with marker`),
+        new Error(
+          `timed out waiting for ${count} RTP packets with marker (got ${received.length})`,
+        ),
       );
     }, timeoutMs);
     const { unSubscribe } = track.onReceiveRtp.subscribe((rtp) => {
