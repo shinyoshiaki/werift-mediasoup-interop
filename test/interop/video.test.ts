@@ -15,7 +15,9 @@ async function produceVideo(mimeType: string) {
   try {
     const send = await session.createLinkedSendTransport();
     const recv = await session.createLinkedRecvTransport();
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { mimeType: { exact: mimeType } } as unknown as boolean,
+    });
     const [track] = stream.getVideoTracks();
     const codec =
       mimeType.toLowerCase() === "video/vp8"
