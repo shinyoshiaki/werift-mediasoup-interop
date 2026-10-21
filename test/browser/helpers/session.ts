@@ -10,7 +10,11 @@ import type {
 import type { Device as MediasoupDevice, Transport } from "mediasoup-client/types";
 
 import { delay } from "../../helpers/rtp.js";
-import { arrangeInteropSession, InteropSession } from "../../helpers/session.js";
+import {
+  arrangeInteropSession,
+  InteropSession,
+  type InteropSessionOptions,
+} from "../../helpers/session.js";
 import {
   describeServerTransport,
   waitForClientConnected,
@@ -407,6 +411,26 @@ export class BrowserInteropSession {
     );
   }
 
+  async browserFramesDecoded(consumerId: string) {
+    return this.page!.evaluate(
+      (id) => window.__mediasoup.inboundFramesDecoded(id),
+      consumerId,
+    );
+  }
+
+  async waitBrowserFramesDecoded(
+    consumerId: string,
+    min: number,
+    timeoutMs = 15_000,
+  ) {
+    return this.page!.evaluate(
+      async ({ id, minimum, timeout }) => {
+        return window.__mediasoup.waitFramesDecoded(id, minimum, timeout);
+      },
+      { id: consumerId, minimum: min, timeout: timeoutMs },
+    );
+  }
+
   async tryWaitVideoPlay(timeoutMs = 3_000) {
     return this.page!.evaluate(
       (timeout) => window.__mediasoup.tryWaitVideoPlay(timeout),
@@ -473,8 +497,8 @@ export class BrowserInteropSession {
   }
 }
 
-export async function arrangeBrowserInteropSession() {
-  const interop = await arrangeInteropSession();
+export async function arrangeBrowserInteropSession(options?: InteropSessionOptions) {
+  const interop = await arrangeInteropSession(options);
   const session = new BrowserInteropSession(interop);
   try {
     const loaded = await session.attachBrowser();

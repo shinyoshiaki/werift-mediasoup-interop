@@ -62,6 +62,12 @@ type BrowserMediasoupApi = {
     min: number,
     timeoutMs: number,
   ): Promise<number>;
+  inboundFramesDecoded(consumerId: string): Promise<number>;
+  waitFramesDecoded(
+    consumerId: string,
+    min: number,
+    timeoutMs: number,
+  ): Promise<number>;
   consumerReadyState(consumerId: string): string;
   tryWaitVideoPlay(timeoutMs: number): Promise<boolean>;
 };

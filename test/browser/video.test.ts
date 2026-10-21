@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { assertRtpHeadersProgress, waitForRtpHeaders } from "../helpers/rtp.js";
-import { pumpWeriftDummyRtp } from "./helpers/media.js";
+import { arrangeWeriftVp8WebmToBrowser, pumpWeriftDummyRtp } from "./helpers/media.js";
 import { arrangeBrowserInteropSession } from "./helpers/session.js";
 
 const TEST_TIMEOUT_MS = 90_000;
@@ -63,6 +63,32 @@ test(
       assert.equal(await session.browserConsumerReadyState(consumed.client.id), "live");
       assert.ok(packetsReceived >= 2, `packetsReceived=${packetsReceived}`);
       void decoded;
+    } finally {
+      await session.close();
+    }
+  },
+);
+
+test(
+  "B9: werift VP8 WebM (packetizer) produce をブラウザ consume がデコードする",
+  { timeout: TEST_TIMEOUT_MS },
+  async () => {
+    const { consumed, session } = await arrangeWeriftVp8WebmToBrowser();
+    try {
+      // 実行: werift の Vp8Packetizer が送る WebM 再生の VP8 を Chromium で受信・デコードさせる。
+      const packetsReceived = await session.waitBrowserPacketsReceived(
+        consumed.client.id,
+        20,
+      );
+      const framesDecoded = await session.waitBrowserFramesDecoded(
+        consumed.client.id,
+        1,
+      );
+
+      // 検証: packetsReceived と framesDecoded > 0 の両方が必須。
+      assert.equal(await session.browserConsumerReadyState(consumed.client.id), "live");
+      assert.ok(packetsReceived >= 20, `packetsReceived=${packetsReceived}`);
+      assert.ok(framesDecoded > 0, `framesDecoded=${framesDecoded}`);
     } finally {
       await session.close();
     }

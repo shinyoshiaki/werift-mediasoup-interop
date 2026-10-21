@@ -4,7 +4,7 @@ import type { Router, WebRtcTransport, Worker } from "mediasoup/types";
 
 import { ResourceBag } from "./cleanup.js";
 import { acquireSharedRuntimeLock } from "./lock.js";
-import { installPolyfillUnlocked } from "./polyfill.js";
+import { type InstallPolyfillOptions, installPolyfillUnlocked } from "./polyfill.js";
 import {
   waitForClientConnected,
   waitForOpen,
@@ -13,7 +13,12 @@ import {
   wireProduceData,
 } from "./signaling.js";
 import { arrangeServerWebRtcTransport, clientTransportOptions } from "./transport.js";
-import { arrangeWorkerRouter } from "./worker.js";
+import { arrangeWorkerRouter, type MediasoupFlavor } from "./worker.js";
+
+export type InteropSessionOptions = InstallPolyfillOptions & {
+  /** mediasoup worker/router module (default: pinned `mediasoup`). */
+  flavor?: MediasoupFlavor;
+};
 
 export class InteropSession {
   readonly resources = new ResourceBag();
@@ -21,16 +26,23 @@ export class InteropSession {
   router?: Router;
   uninstall?: () => void;
   worker?: Worker;
+  mediasoupVersion?: string;
 
-  async start(options?: { userAgent?: string }) {
-    const { worker, router } = await arrangeWorkerRouter();
+  async start(options?: InteropSessionOptions) {
+    const { worker, router, version } = await arrangeWorkerRouter({
+      flavor: options?.flavor,
+    });
     this.worker = worker;
+    this.mediasoupVersion = version;
     this.router = router;
     this.resources.add(() => {
       worker.close();
     });
 
-    const { uninstall } = await installPolyfillUnlocked(options);
+    const { uninstall } = await installPolyfillUnlocked({
+      userAgent: options?.userAgent,
+      mediaRegister: options?.mediaRegister,
+    });
     this.uninstall = uninstall;
     this.resources.add(() => uninstall());
     this.device = await Device.factory();
@@ -206,7 +218,7 @@ export class InteropSession {
   }
 }
 
-export async function arrangeInteropSession(options?: { userAgent?: string }) {
+export async function arrangeInteropSession(options?: InteropSessionOptions) {
   const release = await acquireSharedRuntimeLock();
   const session = new InteropSession();
   session.resources.add(release);

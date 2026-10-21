@@ -279,6 +279,17 @@ class BrowserMediasoupApi {
   }
 
   async inboundPacketsReceived(consumerId: string) {
+    return this.sumInboundStat(consumerId, "packetsReceived");
+  }
+
+  async inboundFramesDecoded(consumerId: string) {
+    return this.sumInboundStat(consumerId, "framesDecoded");
+  }
+
+  private async sumInboundStat(
+    consumerId: string,
+    key: "packetsReceived" | "framesDecoded",
+  ) {
     const consumer = this.consumers.get(consumerId);
     if (!consumer) {
       throw new Error(`unknown consumer ${consumerId}`);
@@ -288,13 +299,14 @@ class BrowserMediasoupApi {
       5_000,
       `timed out in consumer.getStats(${consumerId})`,
     );
-    let packets = 0;
-    stats.forEach((stat: { type: string; packetsReceived?: number }) => {
-      if (stat.type === "inbound-rtp" && typeof stat.packetsReceived === "number") {
-        packets += stat.packetsReceived;
+    let total = 0;
+    stats.forEach((stat: { type: string } & Record<string, unknown>) => {
+      const value = stat[key];
+      if (stat.type === "inbound-rtp" && typeof value === "number") {
+        total += value;
       }
     });
-    return packets;
+    return total;
   }
 
   async waitPacketsReceived(consumerId: string, min: number, timeoutMs: number) {
@@ -310,6 +322,19 @@ class BrowserMediasoupApi {
     throw new Error(
       `timed out waiting for packetsReceived>=${min} (last=${last})`,
     );
+  }
+
+  async waitFramesDecoded(consumerId: string, min: number, timeoutMs: number) {
+    const deadline = Date.now() + timeoutMs;
+    let last = 0;
+    while (Date.now() < deadline) {
+      last = await this.inboundFramesDecoded(consumerId);
+      if (last >= min) {
+        return last;
+      }
+      await delay(100);
+    }
+    throw new Error(`timed out waiting for framesDecoded>=${min} (last=${last})`);
   }
 
   consumerReadyState(consumerId: string) {

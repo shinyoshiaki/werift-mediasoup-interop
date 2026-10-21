@@ -28,6 +28,12 @@ Playwright Chromium client と werift polyfill client が同じ Router を共有
 
 mediasoup の `WebRtcTransport.close()` は server 側のローカル終了であり、遠隔 client の ICE 状態変更を通知する API ではありません。そのため close ケースは各 endpoint の明示的な終了と open handle の残留を検証します。
 
+`mediasoup-legacy`（`npm:mediasoup@3.19.2`）は、VP8 payload descriptor が `X=0` だと keyframe を検出できず転送しない
+PR #1612（mediasoup 3.19.3）以前の挙動に対する回帰テスト用です。`arrangeWorkerRouter({ flavor: "legacy" })` で選び、
+werift の実際の VP8 送信経路（`createDummyRegister()` / `createMp4WebmRegister()`）が legacy でも werift / Chromium consumer に届くことを
+`test/interop/vp8LegacyMediasoup.test.ts` と `test/browser/vp8LegacyMediasoup.test.ts` で検証します。`npm ci` で必ず install され、CI で skip しません。
+3.19.2 の worker prebuilt は Linux kernel 6 までしか配布されないため、それ以外の host では `npm ci` 時に mediasoup のビルド依存（python3 + pip など）を使ったソースビルドになります。
+
 Node 22 以上をサポートし、Pinned CI は Node 24 で `mediasoup@3.26.0` と `mediasoup-client@3.22.0` を使い、small / interop test のあとに `install:browsers` と `test:browser` を実行します。
 最新版 compatibility probe は定期ジョブで、失敗しても本体の必須 CI は壊しません。ブラウザ試験は compatibility probe の必須範囲ではありません。
 
@@ -45,9 +51,10 @@ producer、consumer、polyfill を `finally` で確実に close / uninstall し�
 | transport | send/recv WebRtcTransport、ICE/DTLS connect、ICE restart、close/failure cleanup |
 | audio | Opus produce/consume、pause/resume、replaceTrack、producer/consumer close、RTP/RTCP 往復 |
 | video | VP8/H264 produce/consume、simulcast、preferred layers、key-frame request、track replacement |
+| vp8 descriptor | werift dummy / WebM (`Vp8Packetizer`) → mediasoup 3.26.0 / 3.19.2（legacy）→ werift consumer（simple / simulcast / pause→resume）。X/I/M descriptor・PictureID 連番・keyframe。legacy の X=0 対照は受信 0 |
 | data | reliable/unreliable DataProducer/DataConsumer、ordered/unordered、label/protocol、bidirectional messages |
 | lifecycle | multiple transports/producers/consumers、server-first/client-first close、reconnect、open-handle check |
-| browser | Playwright Chromium ↔ werift。B1 Handler 検出、B2/B4 ブラウザ produce の RTP ヘッダ、B3/B5 werift produce の `packetsReceived`、B6 DataChannel 双方向、B7 同時接続、B8 close |
+| browser | Playwright Chromium ↔ werift。B1 Handler 検出、B2/B4 ブラウザ produce の RTP ヘッダ、B3/B5 werift produce の `packetsReceived`、B6 DataChannel 双方向、B7 同時接続、B8 close、B9/B10 werift VP8 WebM → mediasoup 3.26.0 / 3.19.2 → Chromium の `framesDecoded > 0` |
 | compatibility | Node 22 以上（CI は Node 24）、pinned versions、current mediasoup-client compatibility probe |
 
 OS camera/microphone や codec encode/decode 自体は対象外です。決定的な synthetic RTP source/sink を使い、

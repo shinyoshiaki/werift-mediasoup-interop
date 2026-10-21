@@ -11,6 +11,7 @@ Instructions for coding agents working in `integration/werift-mediasoup-interop`
 * `test/small` covers Handler autodetect and Device control flow without a mediasoup worker.
 * `test/interop` covers real ICE/DTLS/SRTP/SCTP against a mediasoup worker (werift polyfill clients).
 * `test/browser` covers Playwright Chromium `mediasoup-client` ↔ mediasoup worker/router ↔ werift polyfill. Chromium is required.
+* `mediasoup-legacy` is an npm alias of `mediasoup@3.19.2` (before versatica/mediasoup PR #1612, which drops X=0 VP8 descriptors). It is a regression target for werift's VP8 send path; select it with `arrangeWorkerRouter({ flavor: "legacy" })` / `arrangeInteropSession({ flavor: "legacy" })`.
 
 ## Do
 
@@ -20,6 +21,7 @@ Instructions for coding agents working in `integration/werift-mediasoup-interop`
 4. Keep Arrange helpers reusable; small-test Arrange lives in `test/small/helpers/client.ts`. Browser Arrange lives in `test/browser/helpers`.
 5. Add Japanese comments in Act / Assert phases when operation order or expectations are not obvious.
 6. When adding package scripts, update this guide's Commands table in the same change.
+7. Exercise werift's real send paths (dummy media / packetizer) via the `mediaRegister` option and `test/helpers/vp8.ts` when verifying codec payload formats; synthetic `writeRtp` bypasses them.
 
 ## Don't
 
@@ -28,6 +30,7 @@ Instructions for coding agents working in `integration/werift-mediasoup-interop`
 * Do not spawn a mediasoup worker from `test/small`.
 * Do not call `installPolyfill` in the browser page.
 * Do not include `test/browser` in `npm test`; Chromium is opt-in via `test:browser`.
+* Do not skip or drop the `mediasoup-legacy` tests; they are required in CI. Keep `mediasoup-legacy` in this fixture only.
 
 ## Commands
 

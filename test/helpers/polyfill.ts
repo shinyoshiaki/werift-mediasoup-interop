@@ -19,9 +19,24 @@ export type WeriftPolyfillModule = {
     kinds: Array<"audio" | "video">;
     createTracks: () => Promise<unknown[]>;
   }) => unknown;
+  /** werift dummy media (Opus + VP8 via `createDummyVideoTrack`). */
+  createDummyRegister: (options?: { deviceId?: string; label?: string }) => unknown;
+  /** MP4 / WebM file playback through werift's packetizers. */
+  createMp4WebmRegister: (options: { path: string; loop?: boolean }) => unknown;
 };
 
-export async function installPolyfillUnlocked(options?: { userAgent?: string }) {
+/**
+ * Builds the `mediaRegister` list from the werift polyfill module. Omit to use
+ * the default empty callback tracks (tests write synthetic RTP themselves).
+ */
+export type MediaRegisterFactory = (module: WeriftPolyfillModule) => unknown[];
+
+export type InstallPolyfillOptions = {
+  userAgent?: string;
+  mediaRegister?: MediaRegisterFactory;
+};
+
+export async function installPolyfillUnlocked(options?: InstallPolyfillOptions) {
   const { polyfill } = await arrangeWeriftSource();
   const module = polyfill as WeriftPolyfillModule;
   const MediaStreamTrack = await importWeriftMediaStreamTrack();
@@ -42,7 +57,7 @@ export async function installPolyfillUnlocked(options?: { userAgent?: string }) 
       },
       pendingRtp: true,
     },
-    mediaRegister: [
+    mediaRegister: options?.mediaRegister?.(module) ?? [
       module.createCallbackRegister({
         mimeType: "audio/opus",
         kinds: ["audio"],
@@ -70,7 +85,7 @@ export async function installPolyfillUnlocked(options?: { userAgent?: string }) 
   return { MediaStreamTrack, uninstall };
 }
 
-export async function arrangeInstalledPolyfill(options?: { userAgent?: string }) {
+export async function arrangeInstalledPolyfill(options?: InstallPolyfillOptions) {
   const release = await acquireSharedRuntimeLock();
   try {
     const installed = await installPolyfillUnlocked(options);
