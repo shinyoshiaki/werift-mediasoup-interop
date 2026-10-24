@@ -35,7 +35,7 @@ export async function resolveWeriftRoot(): Promise<string> {
   );
 }
 
-/** Import the polyfill's TypeScript source through tsx's runtime loader. */
+/** Import the polyfill's TypeScript source through Node.js TypeScript execution and werift's resolve hook. */
 export async function importWeriftPolyfill(): Promise<Record<string, unknown>> {
   const weriftRoot = await resolveWeriftRoot();
   const entryUrl = pathToFileURL(path.join(weriftRoot, POLYFILL_ENTRY)).href;

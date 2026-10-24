@@ -2,7 +2,7 @@
 
 `mediasoup-client` + werift polyfill と実 `mediasoup` server の Node.js 相互接続を検証する独立 fixture です。
 werift の npm package や build output ではなく、親 checkout の
-`packages/webrtc/src/polyfill/index.ts` を `tsx` で直接 import します。
+`packages/webrtc/src/polyfill/index.ts` を Node.js の TypeScript 実行（`--experimental-transform-types` と werift の `tools/node-ts/register.mjs`）で直接 import します。
 
 `mediasoup-client` には `handlerName` / `handlerFactory` を渡しません。各 E2E は
 `installPolyfill({ mediaRegister, userAgent? })` を Arrange し、`finally` で uninstall します。
